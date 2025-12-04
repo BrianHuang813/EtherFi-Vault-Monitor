@@ -1,0 +1,11 @@
+import os
+from dotenv import load_dotenv 
+
+load_dotenv()
+
+SCROLL_RPC_URL = os.getenv("SCROLL_RPC_URL")
+DEBT_MANAGER_ADDR = os.getenv("DEBT_MANAGER_ADDR")
+CASH_DATA_PROVIDER_ADDR = os.getenv("CASH_DATA_PROVIDER_ADDR")
+MULTICALL3_ADDR = "0xcA11bde05977b3631167028862bE2a173976CA11"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL")

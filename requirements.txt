@@ -1,0 +1,15 @@
+# Blockchain Interaction
+web3>=6.0.0,<7.0.0
+eth-abi>=4.0.0
+eth-utils>=2.0.0
+
+# Telegram Bot
+python-telegram-bot>=20.0,<21.0
+
+# Database & ORM
+sqlalchemy>=1.4.0,<2.1.0
+psycopg2-binary>=2.9.0  # PostgreSQL driver
+
+# Utilities
+python-dotenv>=1.0.0
+multicall>=0.7.0        # Optional helper, though we used raw contract calls

@@ -1,19 +1,49 @@
-from web3 import Web3
-from utils.log import setup_logger
+import sys
+import logging
+from telegram import ApplicationBuilder, CommandHandler
+
+# 1. Import config directly (Single Source of Truth)
+import config
+from logs.logger import setup_logger
+from bot.handlers import start, add_address_handler, list_monitors_handler
+
+logger = setup_logger("main_entry", "./logs")
+
+def validate_config():
+    """
+    Validates that critical configuration variables from config.py are loaded.
+    """
+    # 檢查 config.py 中的變數是否為 None
+    if not config.TELEGRAM_TOKEN:
+        logger.critical("Missing TELEGRAM_TOKEN in .env (loaded via config.py).")
+        sys.exit(1)
+        
+    if not config.DATABASE_URL:
+        logger.critical("Missing DATABASE_URL in .env (loaded via config.py).")
+        sys.exit(1)
+
+    return config.TELEGRAM_TOKEN
 
 def main():
+    logger.info("Starting Ether.fi Cash Monitor Bot...")
     
-    setup_logger("app")
-    logger = setup_logger("app")
+    # Validate before building app
+    token = validate_config()
 
-    provider = Web3.HTTPProvider("https://rpc.scroll.io/")
-    web3 = Web3(provider)
+    try:
+        # Use the token from config
+        app = ApplicationBuilder().token(token).build()
 
-    if web3.is_connected():
-        logger.info("Successfully connected to Ethereum mainnet.")
-    else:
-        logger.error("Failed to connect to Ethereum mainnet.", )
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("add", add_address_handler))
+        app.add_handler(CommandHandler("list", list_monitors_handler))
 
-    
+        logger.info("Bot successfully initialized. Polling started.")
+        app.run_polling()
+
+    except Exception as e:
+        logger.critical(f"Fatal crash: {e}", exc_info=True)
+        sys.exit(1)
+
 if __name__ == "__main__":
     main()
