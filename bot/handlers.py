@@ -108,7 +108,7 @@ async def list_monitors_handler(update: Update, context: ContextTypes.DEFAULT_TY
         # 2. 批次查詢 LTV (使用 Multicall 避免多次請求)
         ltv_data = await loop.run_in_executor(None, Fetcher.get_ltv_batch, addresses)
 
-        # 3. 格式化訊息 (無 Emoji 風格)
+        # 3. 格式化訊息
         message_lines = ["Your Watchlist:", ""]
         
         for addr, ltv_value in ltv_data.items():
