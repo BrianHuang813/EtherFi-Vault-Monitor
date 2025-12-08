@@ -60,7 +60,8 @@ class DataFetcher:
         # 1. 準備 Multicall 請求
         for addr in checksum_addrs:
             # 使用 getUserCurrentState 查詢
-            call_data = self.debt_manager.encodeABI(fn_name="getUserCurrentState", args=[addr])
+            # Web3.py v6+ 使用 encode_abi() 而非 encodeABI()
+            call_data = self.debt_manager.functions.getUserCurrentState(addr)._encode_transaction_data()
             # 構造 Call3 結構: (target, allowFailure, callData)
             calls.append((config.DEBT_MANAGER_ADDR, True, call_data))
 
