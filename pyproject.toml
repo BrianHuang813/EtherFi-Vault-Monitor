@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "dotenv>=0.9.9",
+    "psycopg2-binary>=2.9.11",
+    "python-telegram-bot[job-queue]>=22.5",
     "sqlalchemy>=2.0.44",
     "telegram>=0.0.1",
     "web3>=7.14.0",

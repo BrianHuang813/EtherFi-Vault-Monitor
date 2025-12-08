@@ -30,8 +30,8 @@ class Monitor(Base):
     # 自訂名稱 (例如: "我的主錢包")
     name = Column(String, default="My Safe")
     
-    # 設定：LTV 超過多少通知 (預設 80%)
-    alert_threshold = Column(Float, default=80.0)
+    # 設定：LTV 超過多少通知 (預設 90%)
+    alert_threshold = Column(Float, default=90.0)
     
     # 狀態追蹤
     is_active = Column(Boolean, default=True) # 用戶可以暫停監控

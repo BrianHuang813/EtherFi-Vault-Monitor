@@ -1,11 +1,12 @@
 import sys
-import logging
-from telegram import ApplicationBuilder, CommandHandler
+from telegram.ext import ApplicationBuilder, CommandHandler
 
 # 1. Import config directly (Single Source of Truth)
 import config
 from logs.logger import setup_logger
-from bot.handlers import start, add_address_handler, list_monitors_handler
+from bot.handlers import start, add_address_handler, list_monitors_handler, remove_monitor_handler
+from bot.monitor_loop import setup_monitor_scheduler
+from db import init_db
 
 logger = setup_logger("main_entry", "./logs")
 
@@ -27,6 +28,11 @@ def validate_config():
 def main():
     logger.info("Starting Ether.fi Cash Monitor Bot...")
     
+    # Initialize database tables
+    logger.info("Initializing database...")
+    init_db()
+    logger.info("Database initialized successfully.")
+    
     # Validate before building app
     token = validate_config()
 
@@ -37,6 +43,10 @@ def main():
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("add", add_address_handler))
         app.add_handler(CommandHandler("list", list_monitors_handler))
+        app.add_handler(CommandHandler("remove", remove_monitor_handler))
+
+        # 設置監控迴圈（每 5 分鐘檢查一次）
+        setup_monitor_scheduler(app)
 
         logger.info("Bot successfully initialized. Polling started.")
         app.run_polling()

@@ -1,10 +1,11 @@
 import asyncio
 from telegram import Update
-from telegram import ContextTypes
+from telegram.ext import ContextTypes
 
 from logs.logger import setup_logger
 from blockchain.fetcher import Fetcher
-from db.crud import add_monitor, get_user_monitors, create_user
+from db import SessionLocal
+from db.crud import add_monitor, get_user_monitors, create_user, delete_monitor, get_all_active_monitors, update_last_alert
 
 # 初始化 Logger
 logger = setup_logger("bot_handlers", "./logs")
@@ -17,7 +18,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Ether.fi Cash Monitor Bot initialized.\n\n"
         "Commands:\n"
         "/add <address> - Monitor an address\n"
-        "/list - View your monitored addresses"
+        "/list - View your monitored addresses\n"
+        "/remove <address> - Stop monitoring an address\n"
+        "This monitor checks LTV every hour and alerts you if it exceeds safe limits."
     )
 
 async def add_address_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,6 +48,7 @@ async def add_address_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     logger.info(f"User {user_id} requested to add address: {target_address}")
 
+    db = SessionLocal()
     try:
         # 獲取當前的 asyncio 事件迴圈
         loop = asyncio.get_running_loop()
@@ -61,11 +65,11 @@ async def add_address_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         # 3. 寫入資料庫 (DB 操作也是 Blocking I/O，同樣建議丟入 Executor)
         # 確保用戶存在
-        await loop.run_in_executor(None, create_user, user_id) 
+        await loop.run_in_executor(None, create_user, db, str(user_id)) 
         
         # 新增監控
         # 假設 add_monitor 內部有處理重複新增的邏輯
-        await loop.run_in_executor(None, add_monitor, user_id, target_address)
+        await loop.run_in_executor(None, add_monitor, db, str(user_id), target_address)
 
         logger.info(f"Successfully added monitor for {target_address}")
         
@@ -78,6 +82,8 @@ async def add_address_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         # 記錄完整錯誤堆疊以便除錯
         logger.error(f"Error in add_address_handler: {e}", exc_info=True)
         await update.message.reply_text("An internal error occurred while processing your request.")
+    finally:
+        db.close()
 
 async def list_monitors_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -90,11 +96,13 @@ async def list_monitors_handler(update: Update, context: ContextTypes.DEFAULT_TY
     """
     user_id = update.effective_user.id
     
+    db = SessionLocal()
+
     try:
         loop = asyncio.get_running_loop()
 
         # 1. 讀取 DB
-        monitors = await loop.run_in_executor(None, get_user_monitors, user_id)
+        monitors = await loop.run_in_executor(None, get_user_monitors, db, user_id)
 
         if not monitors:
             await update.message.reply_text("You are not monitoring any addresses.")
@@ -103,7 +111,7 @@ async def list_monitors_handler(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text(f"Fetching data for {len(monitors)} addresses...")
 
         # 提取地址列表
-        addresses = [m.address for m in monitors]
+        addresses = [m.safe_address for m in monitors]
 
         # 2. 批次查詢 LTV (使用 Multicall 避免多次請求)
         ltv_data = await loop.run_in_executor(None, Fetcher.get_ltv_batch, addresses)
@@ -126,3 +134,48 @@ async def list_monitors_handler(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         logger.error(f"Error in list_monitors_handler: {e}", exc_info=True)
         await update.message.reply_text("Failed to retrieve your watchlist data.")
+    finally:
+        db.close()
+
+async def remove_monitor_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    處理 /remove <address> 指令。
+    
+    流程：
+    1. 驗證輸入參數。
+    2. 從資料庫刪除監控。
+    3. 回報結果。
+    """
+    user_id = update.effective_user.id
+    
+    # 1. 輸入驗證
+    if not context.args:
+        await update.message.reply_text("Usage: /remove <0x_address>")
+        return
+
+    target_address = context.args[0]
+    logger.info(f"User {user_id} requested to remove address: {target_address}")
+
+    db = SessionLocal()
+    try:
+        loop = asyncio.get_running_loop()
+        
+        # 2. 刪除監控
+        deleted = await loop.run_in_executor(None, delete_monitor, db, str(user_id), target_address)
+
+        if deleted:
+            logger.info(f"Successfully removed monitor for {target_address}")
+            await update.message.reply_text(
+                f"Address {target_address} has been removed from your watchlist."
+            )
+        else:
+            logger.warning(f"Address {target_address} not found for user {user_id}")
+            await update.message.reply_text(
+                f"Address {target_address} is not in your watchlist."
+            )
+
+    except Exception as e:
+        logger.error(f"Error in remove_monitor_handler: {e}", exc_info=True)
+        await update.message.reply_text("An internal error occurred while processing your request.")
+    finally:
+        db.close()
