@@ -1,7 +1,6 @@
 import sys
 from telegram.ext import ApplicationBuilder, CommandHandler
 
-# 1. Import config directly (Single Source of Truth)
 import config
 from logs.logger import setup_logger
 from bot.handlers import start, add_address_handler, list_monitors_handler, remove_monitor_handler
